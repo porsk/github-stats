@@ -3,7 +3,8 @@ from pandas import DataFrame, read_csv
 from datetime import datetime
 from exceptions import ApiRateLimitError, NotFoundError, BadCredentialsError
 from os.path import isdir, join, isfile
-from os import makedirs, rmdir
+from os import makedirs
+from shutil import rmtree
 
 TOTAL_CONTRIBUTION_FILE_NAME = 'total_contributions'
 WEEKLY_CONTRIBUTIONS_FILE_NAME = 'weekly_contributions'
@@ -14,11 +15,17 @@ CACHE_DIR = 'data'
 
 
 class Downloader:
-    def __init__(self, owner, repo, token='', useCacheIfAvailable=True):
+    def __init__(self,
+                 owner,
+                 repo,
+                 token='',
+                 useCacheIfAvailable=True,
+                 verbose=True):
         self.__url = 'https://api.github.com/repos/{}/{}'.format(owner, repo)
         self.__session = session()
         self.__cache_path = join(CACHE_DIR, owner, repo)
         self.__useCache = useCacheIfAvailable
+        self.__verbose = verbose
 
         if not isdir(self.__cache_path):
             makedirs(self.__cache_path)
@@ -29,11 +36,11 @@ class Downloader:
 
         # checking if the requested repository exists or not
         response = self.__session.get(self.__url)
-        if (response.ok):
-            print(
+        if response.ok:
+            self.__log(
                 'The maximum number of requests you are permitted to make per hour: {}'
                 .format(response.headers['X-RateLimit-Limit']))
-            print(
+            self.__log(
                 'The number of requests remaining in the current rate limit window: {}'
                 .format(response.headers['X-RateLimit-Remaining']))
         else:
@@ -59,13 +66,18 @@ class Downloader:
     def __read_cache(self, file_name):
         return read_csv(join(self.__cache_path, '{}.csv'.format(file_name)),
                         sep='\t',
-                        encoding='utf-8')
+                        encoding='utf-8',
+                        index_col=0)
 
     def __is_cache_available(self, file_name):
         return isfile(join(self.__cache_path, '{}.csv'.format(file_name)))
 
+    def __log(self, text, end='\n'):
+        if self.__verbose:
+            print(text, end)
+
     def delete_cache(self):
-        rmdir(self.__cache_path)
+        rmtree(self.__cache_path)
         makedirs(self.__cache_path)
 
     def get_contributors_statistic(self):
@@ -150,13 +162,13 @@ class Downloader:
         if self.__useCache and self.__is_cache_available(ISSUES_FILE_NAME):
             return self.__read_cache(ISSUES_FILE_NAME)
 
-        print('Fetching repository issues ', end='')
+        self.__log('Fetching repository issues ', end='')
 
         page = 1
         issues = []
 
         while (True):
-            print('.', end='')
+            self.__log('.', end='')
 
             data = self.__session.get('{}/issues?per_page=100&page={}'.format(
                 self.__url, page)).json()
@@ -177,7 +189,7 @@ class Downloader:
 
             page = page + 1
 
-        print('.')
+        self.__log('.')
 
         self.issues = DataFrame(issues, columns=['id', 'state', 'created_at'])
         self.__save_cache(self.issues, ISSUES_FILE_NAME)
@@ -189,13 +201,13 @@ class Downloader:
         if self.__useCache and self.__is_cache_available(STARGAZERS_FILE_NAME):
             return self.__read_cache(STARGAZERS_FILE_NAME)
 
-        print('Fetching stargazers ', end='')
+        self.__log('Fetching stargazers ', end='')
 
         page = 1
         stargazers = []
 
         while (True):
-            print('.', end='')
+            self.__log('.', end='')
 
             data = self.__session.get(
                 '{}/stargazers?per_page=100&page={}'.format(self.__url, page),
@@ -217,7 +229,7 @@ class Downloader:
 
             page = page + 1
 
-        print('.')
+        self.__log('.')
 
         self.stargazers = DataFrame(stargazers, columns=['user', 'starred_at'])
         self.__save_cache(self.stargazers, STARGAZERS_FILE_NAME)
