@@ -11,6 +11,7 @@ WEEKLY_CONTRIBUTIONS_FILE_NAME = 'weekly_contributions'
 CODE_FREQUENCY_FILE_NAME = 'code_frequency'
 ISSUES_FILE_NAME = 'issues'
 STARGAZERS_FILE_NAME = 'stargazers'
+COMMIT_ACTIVITY_FILE_NAME = 'commit_activity'
 CACHE_DIR = 'data'
 
 
@@ -195,6 +196,42 @@ class Downloader:
         self.__save_cache(self.issues, ISSUES_FILE_NAME)
 
         return self.issues
+
+    def get_commit_activity(self):
+        '''Returns the last year of commit activity grouped by week.'''
+
+        if self.__useCache and self.__is_cache_available(
+                COMMIT_ACTIVITY_FILE_NAME):
+            return self.__read_cache(COMMIT_ACTIVITY_FILE_NAME)
+
+        data = self.__session.get(f'{self.__url}/stats/commit_activity').json()
+
+        commit_activity = []
+
+        for item in data:
+            commit_activity.append({
+                'week_unix_ts': item['week'],
+                'mon': item['days'][1],
+                'tue': item['days'][2],
+                'wed': item['days'][3],
+                'thu': item['days'][4],
+                'fri': item['days'][5],
+                'sat': item['days'][6],
+                'sun': item['days'][0],
+            })
+
+        self.commit_activity = DataFrame(commit_activity,
+                                         columns=[
+                                             'week_unix_ts', 'mon', 'tue',
+                                             'wed', 'thu', 'fri', 'sat', 'sun'
+                                         ])
+        self.commit_activity['week'] = self.commit_activity.apply(
+            lambda row: datetime.fromtimestamp(row.week_unix_ts).date(),
+            axis=1)
+
+        self.__save_cache(self.commit_activity, COMMIT_ACTIVITY_FILE_NAME)
+
+        return self.commit_activity
 
     def get_stargazers(self):
         '''Lists the people that have starred the repository'''
