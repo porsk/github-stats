@@ -1,10 +1,10 @@
 from requests import session
 from pandas import DataFrame, read_csv
 from datetime import datetime
-from exceptions import ApiRateLimitError, NotFoundError, BadCredentialsError
-from os.path import isdir, join, isfile
-from os import makedirs
+from os import makedirs, path
+from os.path import isdir, isfile
 from shutil import rmtree
+from exceptions import ApiRateLimitError, NotFoundError, BadCredentialsError
 
 TOTAL_CONTRIBUTION_FILE_NAME = 'total_contributions'
 WEEKLY_CONTRIBUTIONS_FILE_NAME = 'weekly_contributions'
@@ -16,74 +16,100 @@ CACHE_DIR = 'data'
 
 
 class Downloader:
+    '''Downloader class for fetching, pre-process and caching data about a given github repository.'''
     def __init__(self,
                  owner,
                  repo,
                  token='',
                  useCacheIfAvailable=True,
                  verbose=True):
-        self.__url = 'https://api.github.com/repos/{}/{}'.format(owner, repo)
+        self.__url = f'https://api.github.com/repos/{owner}/{repo}'
+        self.__repo = repo
+        self.__owner = owner
         self.__session = session()
-        self.__cache_path = join(CACHE_DIR, owner, repo)
+        self.__cache_path = path.join(CACHE_DIR, owner, repo)
         self.__useCache = useCacheIfAvailable
         self.__verbose = verbose
 
+        # create cache directory if does not exists yet
         if not isdir(self.__cache_path):
             makedirs(self.__cache_path)
 
+        # if the user provided a GitHub Oauth token then the downloader will use it in every request
         if token:
-            self.__session.headers.update(
-                {'Authorization': 'token {}'.format(token)})
+            self.__session.headers.update({f'Authorization': 'token {token}'})
 
-        # checking if the requested repository exists or not
+        # checking if the requested repository exists
         response = self.__session.get(self.__url)
+
         if response.ok:
             self.__log(
-                'The maximum number of requests you are permitted to make per hour: {}'
-                .format(response.headers['X-RateLimit-Limit']))
+                f'The maximum number of requests you are permitted to make per hour: {response.headers["X-RateLimit-Limit"]}'
+            )
             self.__log(
-                'The number of requests remaining in the current rate limit window: {}'
-                .format(response.headers['X-RateLimit-Remaining']))
+                f'The number of requests remaining in the current rate limit window: {response.headers["X-RateLimit-Remaining"]}'
+            )
         else:
-            if (response.status_code == 403):
-                raise ApiRateLimitError(
-                    'API rate limit exceeded. Try to specifyan OAuth token to increase your rate limit.'
-                )
-            if (response.status_code == 404):
-                raise NotFoundError(
-                    "Repository '{}' of user '{}' not found.".format(
-                        repo, owner))
-            if (response.status_code == 401):
-                raise BadCredentialsError(
-                    'Bad credentials were provided for the API.')
+            self.__rasie_error(response)
 
-            raise Exception(response.json()['message'])
+    def __rasie_error(self, response):
+        '''Raises a proper error in case of known problems or a general exception in case of unknown problem.'''
+
+        if response.status_code == 403:
+            raise ApiRateLimitError(
+                'API rate limit exceeded. Try to specify an OAuth token to increase your rate limit.'
+            )
+
+        if response.status_code == 404:
+            raise NotFoundError(
+                f"Repository '{self.__repo}' of user '{self.__owner}' not found."
+            )
+
+        if response.status_code == 401:
+            raise BadCredentialsError(
+                'Bad credentials were provided for the API.')
+
+        raise Exception(response.json()['message'])
+
+    def __call_api(self, path, headers={}):
+        response = self.__session.get(f'{self.__url}/{path}', headers=headers)
+
+        if response.ok:
+            return response.json()
+        else:
+            self.__rasie_error(response)
 
     def __save_cache(self, dataFrame, file_name):
-        dataFrame.to_csv(join(self.__cache_path, '{}.csv'.format(file_name)),
+        '''Method for saving (caching) a dataframe into a given file.'''
+        dataFrame.to_csv(path.join(self.__cache_path, f'{file_name}.csv'),
                          sep='\t',
                          encoding='utf-8')
 
     def __read_cache(self, file_name):
-        return read_csv(join(self.__cache_path, '{}.csv'.format(file_name)),
+        '''Method for reading the cahced data into a pandas dataframe.'''
+        return read_csv(path.join(self.__cache_path, f'{file_name}.csv'),
                         sep='\t',
                         encoding='utf-8',
                         index_col=0)
 
     def __is_cache_available(self, file_name):
-        return isfile(join(self.__cache_path, '{}.csv'.format(file_name)))
+        '''Checks whether there is cached data available or not.'''
+        return isfile(path.join(self.__cache_path, f'{file_name}.csv'))
 
     def __log(self, text, end='\n'):
+        '''Prints out the message of the downloader is in verbose mode.'''
         if self.__verbose:
-            print(text, end)
+            print(text, end=end)
 
     def delete_cache(self):
+        '''Deletes all cache of the current repository.'''
         rmtree(self.__cache_path)
         makedirs(self.__cache_path)
 
     def get_contributors_statistic(self):
-        '''Get contributors list with additions, deletions, and commit counts'''
+        '''Get contributors list with additions, deletions, and commit counts.'''
 
+        # return cached data if it is available and requested by the user
         if self.__useCache and self.__is_cache_available(
                 TOTAL_CONTRIBUTION_FILE_NAME) and self.__is_cache_available(
                     WEEKLY_CONTRIBUTIONS_FILE_NAME):
@@ -91,12 +117,12 @@ class Downloader:
                 TOTAL_CONTRIBUTION_FILE_NAME), self.__read_cache(
                     WEEKLY_CONTRIBUTIONS_FILE_NAME)
 
-        data = self.__session.get('{}/stats/contributors'.format(
-            self.__url)).json()
+        data = self.__call_api('stats/contributors')
 
         total_contributions = []
         weekly_contributions = []
 
+        # parsing data into dataframes
         for item in data:
             total_contributions.append({
                 'commits': item['total'],
@@ -136,13 +162,12 @@ class Downloader:
         return self.total_contributions, self.weekly_contributions
 
     def get_code_frequency_statistic(self):
-        '''Returns a weekly aggregate of the number of additions and deletions pushed to a repository'''
+        '''Returns a weekly aggregate of the number of additions and deletions pushed to a repository.'''
         if self.__useCache and self.__is_cache_available(
                 CODE_FREQUENCY_FILE_NAME):
             return self.__read_cache(CODE_FREQUENCY_FILE_NAME)
 
-        data = self.__session.get('{}/stats/code_frequency'.format(
-            self.__url)).json()
+        data = self.__call_api('stats/code_frequency')
 
         self.code_frequency = DataFrame(
             data, columns=['week_unix_ts', 'additions', 'deletions'])
@@ -153,13 +178,9 @@ class Downloader:
 
         return self.code_frequency
 
-    def get_user_data(self, username):
-        '''Provides publicly available information about someone with a GitHub account'''
-        return self.__session.get(
-            'https://api.github.com/users/{}'.format(username)).json()
-
     def get_issues(self):
-        '''List issues in a repository'''
+        '''List issues in a repository.'''
+
         if self.__useCache and self.__is_cache_available(ISSUES_FILE_NAME):
             return self.__read_cache(ISSUES_FILE_NAME)
 
@@ -171,8 +192,7 @@ class Downloader:
         while (True):
             self.__log('.', end='')
 
-            data = self.__session.get('{}/issues?per_page=100&page={}'.format(
-                self.__url, page)).json()
+            data = self.__call_api(f'issues?per_page=100&page={page}')
 
             if len(data) == 0:
                 break
@@ -204,7 +224,7 @@ class Downloader:
                 COMMIT_ACTIVITY_FILE_NAME):
             return self.__read_cache(COMMIT_ACTIVITY_FILE_NAME)
 
-        data = self.__session.get(f'{self.__url}/stats/commit_activity').json()
+        data = self.__call_api('stats/commit_activity')
 
         commit_activity = []
 
@@ -234,7 +254,8 @@ class Downloader:
         return self.commit_activity
 
     def get_stargazers(self):
-        '''Lists the people that have starred the repository'''
+        '''Lists the people that have starred the repository.'''
+
         if self.__useCache and self.__is_cache_available(STARGAZERS_FILE_NAME):
             return self.__read_cache(STARGAZERS_FILE_NAME)
 
@@ -246,11 +267,9 @@ class Downloader:
         while (True):
             self.__log('.', end='')
 
-            data = self.__session.get(
-                '{}/stargazers?per_page=100&page={}'.format(self.__url, page),
-                headers={
-                    'Accept': 'application/vnd.github.v3.star+json'
-                }).json()
+            data = self.__call_api(
+                f'stargazers?per_page=100&page={page}',
+                {'Accept': 'application/vnd.github.v3.star+json'})
 
             if len(data) == 0:
                 break

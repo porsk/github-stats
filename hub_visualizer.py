@@ -160,7 +160,11 @@ class Visualizer:
         fig, ax = plt.subplots(1, 1, figsize=(20, 3))
 
         # plotting the grid itself and the colorbar next to it
-        c = ax.pcolor(grid, cmap='Blues', edgecolor="white")
+        c = ax.pcolor(grid,
+                      cmap='Blues',
+                      edgecolor="lightgray",
+                      vmin=0,
+                      vmax=max(1, np.max(grid)))
         cbar = fig.colorbar(c, ax=ax)
         cbar.ax.set_ylabel('Number of commints')
 
