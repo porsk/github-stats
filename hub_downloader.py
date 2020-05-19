@@ -24,6 +24,8 @@ class Downloader:
                  useCacheIfAvailable=True,
                  verbose=True):
         self.__url = 'https://api.github.com/repos/{}/{}'.format(owner, repo)
+        self.__repo = repo
+        self.__owner = owner
         self.__session = session()
         self.__cache_path = join(CACHE_DIR, owner, repo)
         self.__useCache = useCacheIfAvailable
@@ -49,19 +51,34 @@ class Downloader:
                 'The number of requests remaining in the current rate limit window: {}'
                 .format(response.headers['X-RateLimit-Remaining']))
         else:
-            if (response.status_code == 403):
-                raise ApiRateLimitError(
-                    'API rate limit exceeded. Try to specifyan OAuth token to increase your rate limit.'
-                )
-            if (response.status_code == 404):
-                raise NotFoundError(
-                    "Repository '{}' of user '{}' not found.".format(
-                        repo, owner))
-            if (response.status_code == 401):
-                raise BadCredentialsError(
-                    'Bad credentials were provided for the API.')
+            self.__rasie_error(response)
 
-            raise Exception(response.json()['message'])
+    def __rasie_error(self, response):
+        '''Raises a proper error in case of known problems or a general exception in case of unknown problem.'''
+
+        if response.status_code == 403:
+            raise ApiRateLimitError(
+                'API rate limit exceeded. Try to specify an OAuth token to increase your rate limit.'
+            )
+
+        if response.status_code == 404:
+            raise NotFoundError(
+                "Repository '{}' of user '{}' not found.".format(
+                    self.__repo, self.__owner))
+
+        if response.status_code == 401:
+            raise BadCredentialsError(
+                'Bad credentials were provided for the API.')
+
+        raise Exception(response.json()['message'])
+
+    def __call_api(self, path, headers={}):
+        response = self.__session.get(f'{self.__url}/{path}', headers=headers)
+
+        if response.ok:
+            return response.json()
+        else:
+            self.__rasie_error(response)
 
     def __save_cache(self, dataFrame, file_name):
         '''Method for saving (caching) a dataframe into a given file.'''
@@ -101,8 +118,7 @@ class Downloader:
                 TOTAL_CONTRIBUTION_FILE_NAME), self.__read_cache(
                     WEEKLY_CONTRIBUTIONS_FILE_NAME)
 
-        data = self.__session.get('{}/stats/contributors'.format(
-            self.__url)).json()
+        data = self.__call_api('stats/contributors')
 
         total_contributions = []
         weekly_contributions = []
@@ -152,8 +168,7 @@ class Downloader:
                 CODE_FREQUENCY_FILE_NAME):
             return self.__read_cache(CODE_FREQUENCY_FILE_NAME)
 
-        data = self.__session.get('{}/stats/code_frequency'.format(
-            self.__url)).json()
+        data = self.__call_api('stats/code_frequency')
 
         self.code_frequency = DataFrame(
             data, columns=['week_unix_ts', 'additions', 'deletions'])
@@ -178,8 +193,7 @@ class Downloader:
         while (True):
             self.__log('.', end='')
 
-            data = self.__session.get('{}/issues?per_page=100&page={}'.format(
-                self.__url, page)).json()
+            data = self.__call_api(f'issues?per_page=100&page={page}')
 
             if len(data) == 0:
                 break
@@ -211,7 +225,7 @@ class Downloader:
                 COMMIT_ACTIVITY_FILE_NAME):
             return self.__read_cache(COMMIT_ACTIVITY_FILE_NAME)
 
-        data = self.__session.get(f'{self.__url}/stats/commit_activity').json()
+        data = self.__call_api('stats/commit_activity')
 
         commit_activity = []
 
@@ -254,11 +268,9 @@ class Downloader:
         while (True):
             self.__log('.', end='')
 
-            data = self.__session.get(
-                '{}/stargazers?per_page=100&page={}'.format(self.__url, page),
-                headers={
-                    'Accept': 'application/vnd.github.v3.star+json'
-                }).json()
+            data = self.__call_api(
+                f'stargazers?per_page=100&page={page}',
+                {'Accept': 'application/vnd.github.v3.star+json'})
 
             if len(data) == 0:
                 break
