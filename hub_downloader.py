@@ -1,10 +1,10 @@
 from requests import session
 from pandas import DataFrame, read_csv
 from datetime import datetime
-from exceptions import ApiRateLimitError, NotFoundError, BadCredentialsError
-from os.path import isdir, join, isfile
-from os import makedirs
+from os import makedirs, path
+from os.path import isdir, isfile
 from shutil import rmtree
+from exceptions import ApiRateLimitError, NotFoundError, BadCredentialsError
 
 TOTAL_CONTRIBUTION_FILE_NAME = 'total_contributions'
 WEEKLY_CONTRIBUTIONS_FILE_NAME = 'weekly_contributions'
@@ -23,11 +23,11 @@ class Downloader:
                  token='',
                  useCacheIfAvailable=True,
                  verbose=True):
-        self.__url = 'https://api.github.com/repos/{}/{}'.format(owner, repo)
+        self.__url = f'https://api.github.com/repos/{owner}/{repo}'
         self.__repo = repo
         self.__owner = owner
         self.__session = session()
-        self.__cache_path = join(CACHE_DIR, owner, repo)
+        self.__cache_path = path.join(CACHE_DIR, owner, repo)
         self.__useCache = useCacheIfAvailable
         self.__verbose = verbose
 
@@ -37,19 +37,18 @@ class Downloader:
 
         # if the user provided a GitHub Oauth token then the downloader will use it in every request
         if token:
-            self.__session.headers.update(
-                {'Authorization': 'token {}'.format(token)})
+            self.__session.headers.update({f'Authorization': 'token {token}'})
 
         # checking if the requested repository exists
         response = self.__session.get(self.__url)
 
         if response.ok:
             self.__log(
-                'The maximum number of requests you are permitted to make per hour: {}'
-                .format(response.headers['X-RateLimit-Limit']))
+                f'The maximum number of requests you are permitted to make per hour: {response.headers["X-RateLimit-Limit"]}'
+            )
             self.__log(
-                'The number of requests remaining in the current rate limit window: {}'
-                .format(response.headers['X-RateLimit-Remaining']))
+                f'The number of requests remaining in the current rate limit window: {response.headers["X-RateLimit-Remaining"]}'
+            )
         else:
             self.__rasie_error(response)
 
@@ -63,8 +62,8 @@ class Downloader:
 
         if response.status_code == 404:
             raise NotFoundError(
-                "Repository '{}' of user '{}' not found.".format(
-                    self.__repo, self.__owner))
+                f"Repository '{self.__repo}' of user '{self.__owner}' not found."
+            )
 
         if response.status_code == 401:
             raise BadCredentialsError(
@@ -82,20 +81,20 @@ class Downloader:
 
     def __save_cache(self, dataFrame, file_name):
         '''Method for saving (caching) a dataframe into a given file.'''
-        dataFrame.to_csv(join(self.__cache_path, '{}.csv'.format(file_name)),
+        dataFrame.to_csv(path.join(self.__cache_path, f'{file_name}.csv'),
                          sep='\t',
                          encoding='utf-8')
 
     def __read_cache(self, file_name):
         '''Method for reading the cahced data into a pandas dataframe.'''
-        return read_csv(join(self.__cache_path, '{}.csv'.format(file_name)),
+        return read_csv(path.join(self.__cache_path, f'{file_name}.csv'),
                         sep='\t',
                         encoding='utf-8',
                         index_col=0)
 
     def __is_cache_available(self, file_name):
         '''Checks whether there is cached data available or not.'''
-        return isfile(join(self.__cache_path, '{}.csv'.format(file_name)))
+        return isfile(path.join(self.__cache_path, f'{file_name}.csv'))
 
     def __log(self, text, end='\n'):
         '''Prints out the message of the downloader is in verbose mode.'''
