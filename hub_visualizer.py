@@ -6,7 +6,7 @@ from os import getenv
 from hub_downloader import Downloader
 
 
-class Visualiser():
+class Visualizer:
     '''Visualizer class for showing relevant charts and plots about a GitHub repository using the Downloader class.'''
     def __init__(self, owner, repo, useCache=True, figsize=(12, 7)):
         self.__figsize = figsize
