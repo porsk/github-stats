@@ -47,15 +47,15 @@ class Visualizer:
 
         plt.title(self.__fig_title('Total lines of code over time'))
         plt.ylabel('Lines')
-        plt.show()
 
         # additions and deletions over time - line chart
         plt.figure(figsize=self.__figsize)
 
-        plt.plot(date_objects, additions, 'g-')
+        plt.plot(date_objects, additions, 'g-', label='Additions')
         plt.fill_between(date_objects, additions, alpha=0.2, color='g')
-        plt.plot(date_objects, deletions, 'r-')
+        plt.plot(date_objects, deletions, 'r-', label='Deletions')
         plt.fill_between(date_objects, deletions, alpha=0.2, color='r')
+        plt.legend()
 
         plt.title(self.__fig_title('Additions and deletions over time'))
         plt.ylabel('Lines')
@@ -129,9 +129,8 @@ class Visualizer:
         plt.plot(dates, cum_stargazers, 'y-')
         plt.fill_between(dates, cum_stargazers, alpha=0.2, color='y')
 
-        plt.title(self.__fig_title('Number of starts over time'))
+        plt.title(self.__fig_title('Number of stars over time'))
         plt.ylabel('Stars')
-        plt.show()
 
         stargazer_count = stargazers_by_week['stargazer_count'].to_numpy()
         dates = stargazers_by_week['date'].to_numpy()
@@ -174,3 +173,5 @@ class Visualizer:
         ax.set_title(self.__fig_title('Commit activity in the last year'))
 
         ax.set_xlabel('Weeks')
+
+        plt.show()

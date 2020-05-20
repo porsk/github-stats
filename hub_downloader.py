@@ -37,7 +37,7 @@ class Downloader:
 
         # if the user provided a GitHub Oauth token then the downloader will use it in every request
         if token:
-            self.__session.headers.update({f'Authorization': 'token {token}'})
+            self.__session.headers.update({'Authorization': f'token {token}'})
 
         # checking if the requested repository exists
         response = self.__session.get(self.__url)
@@ -162,7 +162,7 @@ class Downloader:
         return self.total_contributions, self.weekly_contributions
 
     def get_code_frequency_statistic(self):
-        '''Returns a weekly aggregate of the number of additions and deletions pushed to a repository.'''
+        '''Returns a weekly aggregate of the number of additions and deletions pushed to the repository.'''
         if self.__useCache and self.__is_cache_available(
                 CODE_FREQUENCY_FILE_NAME):
             return self.__read_cache(CODE_FREQUENCY_FILE_NAME)
