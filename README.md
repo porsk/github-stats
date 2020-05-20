@@ -5,7 +5,7 @@ This project downloads data about a given public GitHub repository and helps to 
 ## Usage
 
 1. Install the dependencies with `pip install -r requirements.txt`
-2. (Optional) Set the `GITHUB_OAUTH_TOKEN` environment variable to your personal GitHub Oauth token ([GitHub - Creating a personal access token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line)).
+2. (Optional) Set the `GITHUB_OAUTH_TOKEN` environment variable to your personal GitHub Oauth token ([GitHub - Creating a personal access token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line)). You can use the `dotenv` package and a `.env` file like in the examples.
 3. Instantiate a new Visualizer and specify the `owner` and `repository` parameters.
 
 ```python
@@ -46,7 +46,6 @@ Weekly contributions example:
 | ----- | ------ | ------------ | ---------- | --------- | --------- | ------- |
 | 0     | xhochy | 1249171200   | 2009-08-02 | 0         | 0         | 0       |
 | 1     | xhochy | 1249776000   | 2009-08-09 | 0         | 0         | 0       |
-|       |        |              |            |           |           |         |
 | ...   | ...    | ...          | ...        | ...       | ...       | ...     |
 | 56398 | wesm   | 1589068800   | 2020-05-10 | 0         | 0         | 0       |
 | 56399 | wesm   | 1589673600   | 2020-05-17 | 0         | 0         | 0       |
