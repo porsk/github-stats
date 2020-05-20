@@ -51,10 +51,11 @@ class Visualizer:
         # additions and deletions over time - line chart
         plt.figure(figsize=self.__figsize)
 
-        plt.plot(date_objects, additions, 'g-')
+        plt.plot(date_objects, additions, 'g-', label='Additions')
         plt.fill_between(date_objects, additions, alpha=0.2, color='g')
-        plt.plot(date_objects, deletions, 'r-')
+        plt.plot(date_objects, deletions, 'r-', label='Deletions')
         plt.fill_between(date_objects, deletions, alpha=0.2, color='r')
+        plt.legend()
 
         plt.title(self.__fig_title('Additions and deletions over time'))
         plt.ylabel('Lines')

@@ -16,6 +16,10 @@ pandas_visualizer = Visualizer('porsk', 'github-stats')
 
 **Note:** If you have not turned the cache functionality off with the `useCache` parameter of the visualizer subsequent calls should be faster.
 
+## Examples
+
+You can find examples for the usage in the `Downloader Example` and `Visualizer Example` notebooks.
+
 ## Downloader (`hub_downloader.py`)
 
 - expects an **owner** and a **repository** name
